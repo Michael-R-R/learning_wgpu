@@ -33,14 +33,6 @@ pub struct InstanceVertex {
 }
 
 impl InstanceVertex {
-    pub fn new(value: cgmath::Matrix4<f32>) -> Self {
-        let model = value.into();
-
-        Self {
-            model,
-        }
-    }
-
     pub fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceVertex>() as wgpu::BufferAddress,

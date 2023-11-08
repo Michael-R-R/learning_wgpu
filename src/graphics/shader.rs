@@ -1,7 +1,7 @@
 use wgpu::{ShaderModule, Device};
 
 pub struct Shader {
-    module: ShaderModule
+    pub module: ShaderModule
 }
 
 impl Shader {
@@ -18,9 +18,5 @@ impl Shader {
         Self {
             module,
         }
-    }
-
-    pub fn module(&self) -> &ShaderModule {
-        &self.module
     }
 }

@@ -122,15 +122,19 @@ impl State {
             label: Some("Render Encoder"),
         });
 
-        let i1 = InstanceVertex::new(cgmath::Matrix4::from_translation(cgmath::Vector3 { x: -150.0, y: 0.0, z: 0.0 }) * cgmath::Matrix4::from_scale(100.0));
-        let i2 = InstanceVertex::new(cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 150.0, y: 0.0, z: 0.0 }) * cgmath::Matrix4::from_scale(100.0));
+        let i1 = InstanceVertex { 
+            model: (cgmath::Matrix4::from_translation(cgmath::Vector3 { x: -150.0, y: 0.0, z: 0.0 }) * cgmath::Matrix4::from_scale(100.0)).into() 
+        };
+        let i2 = InstanceVertex { 
+            model: (cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 150.0, y: 0.0, z: 0.0 }) * cgmath::Matrix4::from_scale(100.0)).into() 
+        };
         
         let mut c = Camera::new(&self.device, &self.config, -1000.0, 1000.0);
         let s = Shader::new("resources\\shader.wgsl", &self.device);
         let r = InstanceIndex::new(
             &self.device,
             &self.config, 
-            &s.module(), 
+            &s.module, 
             &vec![Vertex::layout(), InstanceVertex::layout()],
             &shapes::plane(),
             &shapes::plane_indices(),
@@ -160,7 +164,7 @@ impl State {
             render_pass.set_vertex_buffer(0, r.index.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, r.instance_buffer.slice(..));
             render_pass.set_index_buffer(r.index.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..r.index.num_indices, 0, 0..r.num_instances);
+            render_pass.draw_indexed(0..r.index.num_indices, 0, 0..r.instance_data.len() as u32);
 
             self.gui.render(dt, 
                 &self.window, 
@@ -175,5 +179,4 @@ impl State {
 
         Ok(())
     }
-
 }

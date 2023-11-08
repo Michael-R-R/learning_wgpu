@@ -101,14 +101,12 @@ impl Index {
             num_indices,
         }
     }
-
 }
 
 pub struct InstanceIndex {
     pub index: Index,
     pub instance_buffer: wgpu::Buffer,
     pub instance_data: Vec<InstanceVertex>,
-    pub num_instances: u32,
 }
 
 impl InstanceIndex {
@@ -129,13 +127,10 @@ impl InstanceIndex {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
-        let num_instances = instances.len() as u32;
-
         Self {
             index,
             instance_buffer,
             instance_data: instances.to_vec(),
-            num_instances,
         }
     }
 
@@ -147,8 +142,6 @@ impl InstanceIndex {
             contents: bytemuck::cast_slice(&self.instance_data),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
-
-        self.num_instances = self.instance_data.len() as u32;
     }
 
     pub fn update_instance_buffer(&self, queue: &Queue, offset: u32, data: InstanceVertex) {
