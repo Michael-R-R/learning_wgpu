@@ -1,10 +1,7 @@
 use winit::event::Event;
 use winit::{window::Window, event::WindowEvent};
 
-use std::time::Duration;
-
 use super::shapes;
-use super::camera::UniformBuffer;
 use super::Camera;
 use super::Vertex;
 use super::Shader;
@@ -128,8 +125,7 @@ impl State {
         let i1 = InstanceVertex::new(cgmath::Matrix4::from_translation(cgmath::Vector3 { x: -150.0, y: 0.0, z: 0.0 }) * cgmath::Matrix4::from_scale(100.0));
         let i2 = InstanceVertex::new(cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 150.0, y: 0.0, z: 0.0 }) * cgmath::Matrix4::from_scale(100.0));
         
-        let (mut u_buffer, c_buffer) = UniformBuffer::new(&self.device);
-        let c = Camera::new(&self.device, &self.config, c_buffer, -1000.0, 1000.0);
+        let mut c = Camera::new(&self.device, &self.config, -1000.0, 1000.0);
         let s = Shader::new("resources\\shader.wgsl", &self.device);
         let r = InstanceIndex::new(
             &self.device,
@@ -141,7 +137,7 @@ impl State {
             &vec![i1, i2],
             &vec![&c.bind_layout]);
 
-        u_buffer.update_buffer(&self.queue, &c);
+        c.update_buffer(&self.queue);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

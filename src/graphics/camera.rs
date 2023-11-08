@@ -16,6 +16,7 @@ pub struct Camera {
     height: f32,
     znear: f32,
     zfar: f32,
+    u_buffer: UniformBuffer,
     pub buffer: Buffer,
     pub bind_layout: BindGroupLayout,
     pub bind_group: BindGroup,
@@ -23,10 +24,12 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(device: &Device,
-         config: &SurfaceConfiguration, 
-         buffer: Buffer, 
+         config: &SurfaceConfiguration,
          near: f32, 
          far: f32) -> Self {
+
+        let u_buffer = UniformBuffer::new();
+        let buffer = u_buffer.init_buffer(device);
 
         let bind_layout = Camera::create_layout(device);
         let bind_group = Camera::create_bind_group(device, &bind_layout, &buffer);
@@ -40,6 +43,7 @@ impl Camera {
             height: config.width as f32, 
             znear: near, 
             zfar: far, 
+            u_buffer,
             buffer,
             bind_layout,
             bind_group,
@@ -89,23 +93,23 @@ impl Camera {
         return OPENGL_TO_WGPU_MATRIX * proj * view;
     }
 
+    pub fn update_buffer(&mut self, queue: &Queue) {
+        self.u_buffer.view_projection = self.view_projection().into();
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.u_buffer]));
+    }
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct UniformBuffer {
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct UniformBuffer {
     view_projection: [[f32; 4]; 4],
 }
 
 impl UniformBuffer {
-    pub fn new(device: &Device) -> (Self, Buffer) {
-        let u_buffer = UniformBuffer { 
+    fn new() -> Self {
+        Self { 
             view_projection: cgmath::Matrix4::identity().into() 
-        };
-
-        let buffer = u_buffer.init_buffer(device);
-
-        (u_buffer, buffer)
+        }
     }
 
     fn init_buffer(&self, device: &Device) -> Buffer {
@@ -114,10 +118,5 @@ impl UniformBuffer {
             contents: bytemuck::cast_slice(&[*self]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         })
-    }
-
-    pub fn update_buffer(&mut self, queue: &Queue, camera: &Camera) {
-        self.view_projection = camera.view_projection().into();
-        queue.write_buffer(&camera.buffer, 0, bytemuck::cast_slice(&[*self]));
     }
 }
