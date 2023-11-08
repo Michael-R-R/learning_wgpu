@@ -1,47 +1,32 @@
-use image::{GenericImageView, RgbaImage};
-use wgpu::{Device, Texture, Queue, TextureView, Sampler, BindGroupLayout, BindGroup};
+use image::GenericImageView;
+use wgpu::{Device, Queue, BindGroupLayout, BindGroup};
 
 pub struct Texture2D {
-    pub bind_layout: BindGroupLayout,
-    pub bind_group: BindGroup,
+    pub texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+    pub sampler: wgpu::Sampler,
 }
 
 impl Texture2D {
     pub fn new(device: &Device, queue: &Queue, file: &str) -> Self {
-
-        let (rgba,
-            dimension,
-            size, 
-            texture) = Texture2D::create(device, file);
-
-        Texture2D::write(queue, &rgba, dimension, size, &texture);
-
-        let (view, sampler) = Texture2D::create_sampler(device, &texture);
-
-        let bind_layout = Texture2D::create_bind_layout(device);
-
-        let bind_group = Texture2D::create_bind_group(device, &view, &sampler, &bind_layout); 
-
-        Self {
-            bind_layout,
-            bind_group,
-        }
-    }
-
-    fn create(device: &Device, file: &str) -> (RgbaImage, (u32, u32), wgpu::Extent3d, Texture) {
         let tex_bytes = std::fs::read(file)
-            .expect("Cannot read diffuse texture file");
-        let tex_image = image::load_from_memory(&tex_bytes).unwrap();
+            .expect("Cannot read texture image file");
+
+        let tex_image = image::load_from_memory(&tex_bytes)
+            .expect("Cannot load image from memory");
+
         let tex_rgba = tex_image.to_rgba8();
 
         let tex_dimension = tex_image.dimensions();
+
         let tex_size = wgpu::Extent3d {
             width: tex_dimension.0,
             height: tex_dimension.1,
             depth_or_array_layers: 1,
         };
-        let tex = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Diffuse texture"),
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Texture"),
             size: tex_size,
             mip_level_count: 1,
             sample_count: 1,
@@ -51,10 +36,6 @@ impl Texture2D {
             view_formats: &[],
         });
 
-        (tex_rgba, tex_dimension, tex_size, tex)
-    }
-
-    fn write(queue: &Queue, rgba: &RgbaImage, dimension: (u32,u32), size: wgpu::Extent3d, texture: &Texture) {
         queue.write_texture(
             wgpu::ImageCopyTexture {
                 texture: &texture,
@@ -62,17 +43,15 @@ impl Texture2D {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &rgba,
+            &tex_rgba,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * dimension.0),
-                rows_per_image: Some(dimension.1),
+                bytes_per_row: Some(4 * tex_dimension.0),
+                rows_per_image: Some(tex_dimension.1),
             },
-            size
+            tex_size
         );
-    }
 
-    fn create_sampler(device: &Device, texture: &Texture) -> (TextureView, Sampler) {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -84,15 +63,20 @@ impl Texture2D {
             ..Default::default()
         });
 
-        (view, sampler)
+        Self {
+            texture,
+            view,
+            sampler,
+        }
     }
 
-    fn create_bind_layout(device: &Device) -> BindGroupLayout {
-        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    pub fn create_binding(&self, device: &Device, index: u32) -> (BindGroupLayout, BindGroup) {
+
+        let bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Bind Group Layout"),
                 entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
+                    wgpu::BindGroupLayoutEntry { // texture entry
+                        binding: index,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
@@ -101,8 +85,8 @@ impl Texture2D {
                         },
                         count: None,
                     },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
+                    wgpu::BindGroupLayoutEntry { // sampler entry
+                        binding: index + 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
@@ -110,26 +94,21 @@ impl Texture2D {
                 ],
             });
 
-        return layout
-    }
-
-    fn create_bind_group(device: &Device, view: &TextureView, sampler: &Sampler, layout: &BindGroupLayout) -> BindGroup {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Bind Group"),
-            layout: &layout,
+            layout: &bind_layout,
             entries: &[
                 wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
+                    binding: index,
+                    resource: wgpu::BindingResource::TextureView(&self.view),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
+                    binding: index + 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
                 },
             ],
         });
 
-        return bind_group;
+        return (bind_layout, bind_group)
     }
-
 }
