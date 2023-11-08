@@ -16,18 +16,21 @@ const DOCKSPACE_PADDING: [f32; 2] = [0.0, 0.0];
 
 pub struct GUI {
     pub imgui: Context,
-    pub imgui_platform: WinitPlatform,
-    pub imgui_renderer: Renderer,
+    pub platform: WinitPlatform,
+    pub renderer: Renderer,
 }
 
 impl GUI {
-    pub fn new(window: &Window, device: &Device, queue: &Queue, config: &SurfaceConfiguration) -> Self {
+    pub fn new(window: &Window, 
+        device: &Device, 
+        queue: &Queue, 
+        config: &SurfaceConfiguration) -> Self {
 
         let mut imgui = imgui::Context::create();
         imgui.io_mut().config_flags = ConfigFlags::DOCKING_ENABLE | ConfigFlags::VIEWPORTS_ENABLE;
 
-        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui);
-        imgui_platform.attach_window(imgui.io_mut(), &window, imgui_winit_support::HiDpiMode::Default);
+        let mut platform = imgui_winit_support::WinitPlatform::init(&mut imgui);
+        platform.attach_window(imgui.io_mut(), &window, imgui_winit_support::HiDpiMode::Default);
         imgui.set_ini_filename(None);
 
         let font_size = (13.0 * window.scale_factor()) as f32;
@@ -42,17 +45,17 @@ impl GUI {
             })
         }]);
 
-        let imgui_renderer_config = RendererConfig {
+        let renderer_config = RendererConfig {
             texture_format: config.format,
             ..Default::default()
         };
 
-        let imgui_renderer = Renderer::new(&mut imgui, &device, &queue, imgui_renderer_config);
+        let renderer = Renderer::new(&mut imgui, &device, &queue, renderer_config);
 
         Self {
             imgui,
-            imgui_platform,
-            imgui_renderer,
+            platform,
+            renderer,
         }
     }
 
@@ -66,10 +69,13 @@ impl GUI {
 
         self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(dt));
 
-        self.imgui_platform.prepare_frame(self.imgui.io_mut(), window)
+        self.platform.prepare_frame(self.imgui.io_mut(), window)
                 .expect("Failed to prepare imgui frame");
 
         let dockspace_pos: [f32; 2] = self.imgui.main_viewport().pos;
+        let dockspace_flags = WindowFlags::MENU_BAR | WindowFlags::NO_DOCKING | WindowFlags::NO_TITLE_BAR 
+        | WindowFlags::NO_COLLAPSE | WindowFlags::NO_RESIZE | WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS 
+        | WindowFlags::NO_NAV_FOCUS | WindowFlags::NO_MOVE| WindowFlags::NO_BACKGROUND;
 
         let ui = self.imgui.frame();
         {
@@ -81,7 +87,7 @@ impl GUI {
             ui.window("Dockspace")
                 .position(dockspace_pos, Condition::Always)
                 .size(dock_size, Condition::Always)
-                .flags(GUI::dockspace_flags())
+                .flags(dockspace_flags)
                 .build(|| {
                     rounding.pop();
                     border.pop();
@@ -110,7 +116,7 @@ impl GUI {
             ui.show_demo_window(&mut is_open);
 
             let window = ui.window("Hello world");
-            window.size([300.0, 100.0], Condition::FirstUseEver)
+            window.size([300.0, 100.0], Condition::Always)
                 .build(|| {
                     ui.text("Hello world");
                     ui.separator();
@@ -118,20 +124,13 @@ impl GUI {
                 });
         }
 
-        self.imgui_platform.prepare_render(ui, window);
+        self.platform.prepare_render(ui, window);
 
-        self.imgui_renderer
-            .render(self.imgui.render(), queue, device, rp)
+        self.renderer.render(self.imgui.render(), queue, device, rp)
             .expect("Imgui rendering failed");
     }
 
     pub fn handle_event(&mut self, window: &Window, event: &Event<'_, ()>) {
-        self.imgui_platform.handle_event(self.imgui.io_mut(), window, event);
-    }
-
-    fn dockspace_flags() -> WindowFlags {
-        WindowFlags::MENU_BAR | WindowFlags::NO_DOCKING | WindowFlags::NO_TITLE_BAR 
-        | WindowFlags::NO_COLLAPSE | WindowFlags::NO_RESIZE | WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS 
-        | WindowFlags::NO_NAV_FOCUS | WindowFlags::NO_MOVE| WindowFlags::NO_BACKGROUND
+        self.platform.handle_event(self.imgui.io_mut(), window, event);
     }
 }
